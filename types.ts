@@ -8,6 +8,13 @@ export interface SurfSpot {
   minTide: number;
   offshoreDirection: { from: number, to: number };
   timezone: string;
+  waveBuoys: string[];
+  tideStation: string;
+  tideStationName: string;
+  swellWindowDeg: [number, number];
+  bestSwellFromDeg: number;
+  offshoreWindFromDeg: number;
+  spotMultiplier: number;
 }
 
 export interface HourlyWeatherData {
@@ -68,37 +75,45 @@ export interface PerformanceMetrics {
   componentRenders: number;
 }
 
-// Types for World Weather Online API response
-export interface WWO_HourlyData {
-    time: string;
-    sigHeight_m: string;
-    swellDir16Point: string;
-    swellPeriod_secs: string;
-    swellHeight_m: string;
-    windspeedKmph: string;
-    winddir16Point: string;
-    tempC?: string;
-    precipMM?: string;
-}
+export type WindRelation =
+  | 'offshore'
+  | 'cross-offshore'
+  | 'cross-shore'
+  | 'cross-onshore'
+  | 'onshore';
 
-export interface WWO_TideData {
-    tideTime: string;
-    tideHeight_mt: string;
-}
-
-export interface WWO_Tides {
-    tide_data: WWO_TideData[];
-}
-
-export interface WWO_WeatherDay {
-    date: string;
-    hourly: WWO_HourlyData[];
-    tides: WWO_Tides[];
-}
-
-export interface WWO_Response {
-    data?: {
-        weather?: WWO_WeatherDay[];
-        error?: { msg: string }[];
-    }
+export interface SpotConditions {
+  spot_id: string;
+  generated_at: string;
+  conditions: {
+    primary_swell: {
+      height_m: number;
+      period_s: number;
+      direction_deg: number;
+      source: string;
+      observed_at: string;
+      confidence: number;
+    };
+    tide: {
+      height_m: number;
+      state: TidePhase;
+      station: string;
+      datum: string;
+    };
+    wind: {
+      speed_mps: number;
+      direction_deg: number;
+      relation: WindRelation;
+      source: string;
+    };
+    weather: {
+      air_temp_c: number;
+      rain_mm: number;
+    };
+    surf_estimate: {
+      breaking_size_m: number;
+      quality_score: number;
+      notes: string[];
+    };
+  };
 }

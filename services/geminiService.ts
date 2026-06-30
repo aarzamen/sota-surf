@@ -37,7 +37,7 @@ Output must be a strict JSON object adhering to the schema. Tone: Military/Techn
 
 // 1. Structured Analysis using Gemini 3.5 Flash (supporting JSON schema and robust reasoning)
 export const generateSurfAnalysis = async (conditions: Conditions): Promise<AIAnalysis> => {
-  if (!process.env.API_KEY) throw new Error("API Key missing");
+  if (!process.env.API_KEY) return generateLocalSurfAnalysis(conditions);
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -69,6 +69,50 @@ export const generateSurfAnalysis = async (conditions: Conditions): Promise<AIAn
     throw new Error("Analysis sub-system failure.");
   }
 };
+
+function generateLocalSurfAnalysis(conditions: Conditions): AIAnalysis {
+    const waveScore = Math.min(3.2, conditions.waveHeight * 2.1);
+    const periodScore = Math.min(3.0, conditions.wavePeriod / 5);
+    const windPenalty = Math.min(2.2, conditions.windSpeed / 4);
+    const tideAdjustment = conditions.currentTide < 0.5 ? -1.0 : conditions.tidePhase === 'rising' ? 0.7 : 0.2;
+    const surfScore = clampScore(waveScore + periodScore + 3.2 - windPenalty + tideAdjustment);
+    const safety = localSafetyAssessment(conditions);
+    const skillLevel = surfScore >= 7.5 ? 'Intermediate' : surfScore >= 5 ? 'Novice' : 'Advanced';
+    const timing = conditions.tidePhase === 'rising' ? 'Rising tide window active' : `${conditions.tidePhase} tide; monitor local hazards`;
+
+    return {
+        surfScore,
+        safety,
+        skillLevel,
+        timing,
+        description: `Open-data local assessment: ${conditions.waveHeight.toFixed(1)}m at ${conditions.wavePeriod.toFixed(0)}s with ${conditions.windSpeed.toFixed(1)}m/s wind. ${safety.details}`,
+    };
+}
+
+function localSafetyAssessment(conditions: Conditions): AIAnalysis['safety'] {
+    if (conditions.waveHeight >= 2.5 || conditions.windSpeed >= 10) {
+        return {
+            level: 'RED',
+            details: 'High energy or strong wind. Advanced operators only.',
+        };
+    }
+
+    if (conditions.currentTide < 0.5 || conditions.waveHeight >= 1.8 || conditions.windSpeed >= 7) {
+        return {
+            level: 'YELLOW',
+            details: 'Moderate hazard profile. Check bottom exposure and rip current behavior.',
+        };
+    }
+
+    return {
+        level: 'GREEN',
+        details: 'Manageable open-data hazard profile. Confirm conditions visually before entry.',
+    };
+}
+
+function clampScore(value: number): number {
+    return Math.max(0, Math.min(10, Number(value.toFixed(1))));
+}
 
 // 2. Local Intel (News/Grounding) using Search (with robust fallback on permission issues)
 export const generateLocalIntel = async (region: string): Promise<LocalIntelData> => {
