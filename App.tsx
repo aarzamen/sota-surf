@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { SURF_SPOTS } from './constants';
 import { fetchWeatherData } from './services/meteoService';
 import { generateSurfAnalysis, generateLocalIntel } from './services/geminiService';
-import { WindArrowIcon, BackIcon, TideIcon, ThermometerIcon, PrecipitationIcon, ShareIcon } from './components/icons';
+import { WindArrowIcon, BackIcon, TideIcon, ThermometerIcon, PrecipitationIcon, ShareIcon, SettingsIcon } from './components/icons';
 import { UnitToggle } from './components/UnitToggle';
 import { DataCard } from './components/DataCard';
 import { SkeletonCard } from './components/SkeletonCard';
@@ -39,6 +39,12 @@ export function App() {
     const [tempUnit, setTempUnit] = useState<UnitSystem>(() => (sessionStorage.getItem('surfTempUnit') as UnitSystem) || 'metric');
     const [activeTab, setActiveTab] = useState<Tab>('sitrep');
     const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
+    const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+    const [tideThreshold, setTideThreshold] = useState<number>(() => {
+        const saved = localStorage.getItem('surf_tide_threshold');
+        return saved ? parseFloat(saved) : 1.0;
+    });
+    const [showSettings, setShowSettings] = useState<boolean>(false);
     
     const [dataState, setDataState] = useState<DataState>({
         loading: true, error: null, weatherData: null, 
@@ -47,6 +53,18 @@ export function App() {
     });
     
     const selectedSpot: SurfSpot | null = useMemo(() => selectedSpotId ? SURF_SPOTS[selectedSpotId] : null, [selectedSpotId]);
+
+    // Track online/offline status
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     // Geolocation
     useEffect(() => {
@@ -81,13 +99,30 @@ export function App() {
         sessionStorage.setItem('surfTempUnit', tempUnit);
     }, [selectedSpotId, unitSystem, tempUnit]);
 
+    useEffect(() => {
+        localStorage.setItem('surf_tide_threshold', tideThreshold.toString());
+    }, [tideThreshold]);
+
     // Fetch Data
     const fetchData = useCallback(async (spot: SurfSpot) => {
         setDataState(prev => ({ ...prev, loading: true, error: null, aiAnalysis: null, weatherData: null, aiError: null, localIntel: null }));
         try {
             const weatherRes = await fetchWeatherData(spot);
+            // Save to localStorage for robust offline access
+            localStorage.setItem(`surf_weather_data_${spot.id}`, JSON.stringify(weatherRes.hourly));
             setDataState(prev => ({ ...prev, loading: false, weatherData: weatherRes.hourly }));
         } catch (err) {
+            // Check localStorage if API call fails
+            const cachedWeather = localStorage.getItem(`surf_weather_data_${spot.id}`);
+            if (cachedWeather) {
+                try {
+                    const parsedWeather = JSON.parse(cachedWeather);
+                    setDataState(prev => ({ ...prev, loading: false, weatherData: parsedWeather, error: null }));
+                    return;
+                } catch (e) {
+                    console.error("Failed to parse cached weather data", e);
+                }
+            }
             setDataState(prev => ({ ...prev, loading: false, error: (err as Error).message, weatherData: null }));
         }
     }, []);
@@ -115,13 +150,45 @@ export function App() {
 
             setDataState(prev => ({ ...prev, aiLoading: true }));
             generateSurfAnalysis(conditions)
-                .then(analysis => setDataState(prev => ({ ...prev, aiAnalysis: analysis, aiLoading: false })))
-                .catch(err => setDataState(prev => ({ ...prev, aiAnalysis: null, aiLoading: false, aiError: err.message })));
+                .then(analysis => {
+                    localStorage.setItem(`surf_ai_analysis_${selectedSpot.id}`, JSON.stringify(analysis));
+                    setDataState(prev => ({ ...prev, aiAnalysis: analysis, aiLoading: false, aiError: null }));
+                })
+                .catch(err => {
+                    // Fall back to cached analysis offline
+                    const cachedAnalysis = localStorage.getItem(`surf_ai_analysis_${selectedSpot.id}`);
+                    if (cachedAnalysis) {
+                        try {
+                            const parsedAnalysis = JSON.parse(cachedAnalysis);
+                            setDataState(prev => ({ ...prev, aiAnalysis: parsedAnalysis, aiLoading: false, aiError: null }));
+                            return;
+                        } catch (e) {
+                            console.error("Failed to parse cached AI analysis", e);
+                        }
+                    }
+                    setDataState(prev => ({ ...prev, aiAnalysis: null, aiLoading: false, aiError: err.message }));
+                });
 
             setDataState(prev => ({ ...prev, intelLoading: true }));
             generateLocalIntel(selectedSpot.region)
-                .then(intel => setDataState(prev => ({ ...prev, localIntel: intel, intelLoading: false })))
-                .catch(() => setDataState(prev => ({ ...prev, intelLoading: false })));
+                .then(intel => {
+                    localStorage.setItem(`surf_local_intel_${selectedSpot.id}`, JSON.stringify(intel));
+                    setDataState(prev => ({ ...prev, localIntel: intel, intelLoading: false }));
+                })
+                .catch(() => {
+                    // Fall back to cached local intel offline
+                    const cachedIntel = localStorage.getItem(`surf_local_intel_${selectedSpot.id}`);
+                    if (cachedIntel) {
+                        try {
+                            const parsedIntel = JSON.parse(cachedIntel);
+                            setDataState(prev => ({ ...prev, localIntel: parsedIntel, intelLoading: false }));
+                            return;
+                        } catch (e) {
+                            console.error("Failed to parse cached local intel", e);
+                        }
+                    }
+                    setDataState(prev => ({ ...prev, intelLoading: false }));
+                });
         }
     }, [dataState.weatherData, selectedSpot]);
 
@@ -181,8 +248,10 @@ export function App() {
                             <p className="text-[10px] font-bold text-mil-tan uppercase tracking-[0.2em]">Tactical Surf Command</p>
                         </div>
                         <div className="flex flex-col items-end">
-                             <div className="w-2 h-2 rounded-full bg-mil-green animate-pulse mb-1"></div>
-                             <p className="text-[9px] text-mil-border uppercase">UPLINK ESTABLISHED</p>
+                             <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-mil-green' : 'bg-mil-alert'} animate-pulse mb-1`}></div>
+                             <p className={`text-[9px] font-bold uppercase ${isOnline ? 'text-mil-border' : 'text-mil-alert'}`}>
+                                 {isOnline ? 'UPLINK ESTABLISHED' : 'LINK OFFLINE // LOCAL STORAGE'}
+                             </p>
                         </div>
                     </div>
                 </header>
@@ -209,19 +278,31 @@ export function App() {
                         <BackIcon className="w-3 h-3 mr-2 group-hover:-translate-x-1 transition-transform" />
                         Return_To_Base
                     </button>
-                    <UnitToggle 
-                        unitSystem={unitSystem} 
-                        onUnitSystemToggle={() => handleUnitToggle('dist')}
-                        tempUnit={tempUnit}
-                        onTempUnitToggle={() => handleUnitToggle('temp')}
-                    />
+                    <div className="flex items-center gap-2">
+                        <UnitToggle 
+                            unitSystem={unitSystem} 
+                            onUnitSystemToggle={() => handleUnitToggle('dist')}
+                            tempUnit={tempUnit}
+                            onTempUnitToggle={() => handleUnitToggle('temp')}
+                        />
+                        <button 
+                            onClick={() => { triggerHaptic(15); setShowSettings(!showSettings); }}
+                            className={`p-2 border rounded-sm transition-colors mt-2 shrink-0 ${showSettings ? 'border-mil-green bg-mil-green/10 text-mil-green shadow-[0_0_8px_rgba(51,255,51,0.2)]' : 'border-mil-border/50 text-mil-tan hover:text-white hover:bg-mil-border/25'}`}
+                            title="Tactical Settings"
+                        >
+                            <SettingsIcon className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="flex items-end justify-between pb-3 mt-2">
                      <div>
                          <h1 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none truncate max-w-[220px]">{selectedSpot.name}</h1>
-                         <div className="flex items-center gap-2 mt-1">
+                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-[9px] text-mil-green font-bold uppercase tracking-[0.2em] bg-mil-green/10 px-1 border border-mil-green/20">{selectedSpot.region}</span>
+                            {!isOnline && (
+                                <span className="text-[9px] text-mil-alert font-bold uppercase tracking-[0.2em] bg-mil-alert/10 px-1.5 border border-mil-alert/30 animate-pulse">OFFLINE MODE // CACHED DATA</span>
+                            )}
                             <span className="text-[9px] text-mil-tan uppercase">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                          </div>
                      </div>
@@ -249,6 +330,77 @@ export function App() {
                 </div>
             </header>
 
+            {/* Tactical Settings Panel */}
+            {showSettings && (
+                <div className="bg-mil-panel border-b border-mil-border p-4 space-y-4 animate-slide-up relative z-20">
+                    <div className="flex justify-between items-center pb-2 border-b border-mil-border/50">
+                        <span className="text-xs font-black tracking-widest uppercase text-mil-green font-mono">SOTA_CONFIG // PARAMETERS</span>
+                        <button 
+                            onClick={() => setShowSettings(false)} 
+                            className="text-[10px] text-mil-tan hover:text-white uppercase font-bold tracking-wider font-mono"
+                        >
+                            [CLOSE]
+                        </button>
+                    </div>
+                    
+                    {/* Minimum Tide Parameter */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-[10px] font-bold text-mil-tan uppercase tracking-wider font-mono">
+                                MINIMUM TIDE THRESHOLD
+                            </label>
+                            <span className="text-xs font-black text-mil-green bg-mil-green/10 px-2 py-0.5 border border-mil-green/20 rounded font-mono">
+                                {tideThreshold.toFixed(2)}m
+                            </span>
+                        </div>
+                        
+                        <p className="text-[9px] text-mil-tan-dark uppercase leading-relaxed tracking-wide font-mono">
+                            Set your absolute safe operational minimum tide limit. When tide conditions fall below this value, SOTA triggers alert telemetry on your dashboard.
+                        </p>
+                        
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => {
+                                    triggerHaptic(5);
+                                    setTideThreshold(prev => Math.max(0, parseFloat((prev - 0.1).toFixed(1))));
+                                }}
+                                className="px-3 py-1.5 border border-mil-border text-mil-green hover:bg-mil-border/50 rounded text-sm font-bold select-none active:bg-mil-green/15 font-mono animate-pulse"
+                            >
+                                -
+                            </button>
+                            <input 
+                                type="range" 
+                                min="0.0" 
+                                max="3.0" 
+                                step="0.1" 
+                                value={tideThreshold} 
+                                onChange={(e) => {
+                                    triggerHaptic(5);
+                                    setTideThreshold(parseFloat(e.target.value));
+                                }}
+                                className="flex-1 accent-mil-green h-1 bg-mil-border rounded-lg appearance-none cursor-pointer font-mono"
+                            />
+                            <button 
+                                onClick={() => {
+                                    triggerHaptic(5);
+                                    setTideThreshold(prev => Math.min(3.0, parseFloat((prev + 0.1).toFixed(1))));
+                                }}
+                                className="px-3 py-1.5 border border-mil-border text-mil-green hover:bg-mil-border/50 rounded text-sm font-bold select-none active:bg-mil-green/15 font-mono animate-pulse"
+                            >
+                                +
+                            </button>
+                        </div>
+                        
+                        {selectedSpot && (
+                            <div className="text-[9px] text-mil-tan uppercase bg-mil-black/50 p-2 border border-mil-border/30 rounded mt-1 flex justify-between items-center font-mono">
+                                <span>SPOT SPECIFIC BENCHMARK ({selectedSpot.name}):</span>
+                                <span className="font-bold text-white underline font-mono">{selectedSpot.minTide.toFixed(2)}m</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Scroll Content */}
             <main className="flex-grow overflow-y-auto no-scrollbar p-4 pb-32 space-y-4 bg-grid-pattern bg-grid relative">
                 {/* Background Overlay for Depth */}
@@ -268,7 +420,27 @@ export function App() {
                          <SkeletonCard className="h-32" />
                     </div>
                 ) : !dataState.error && current && (
-                    <div className="relative z-10">
+                    <div className="relative z-10 space-y-3">
+                        {/* Threshold Tide visual alert */}
+                        {current.tide < tideThreshold && (
+                            <div className="border border-mil-alert bg-mil-alert/10 p-3 text-mil-alert rounded-md animate-pulse shadow-[0_0_15px_rgba(255,51,51,0.25)] relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-1 font-mono text-[8px] bg-mil-alert/20 text-white select-none">
+                                    ALRT_092
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="w-5 h-5 flex items-center justify-center rounded bg-mil-alert/20 text-mil-alert shrink-0 mt-0.5">
+                                        <span className="font-bold text-xs font-mono">!</span>
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <p className="text-[11px] font-black tracking-widest uppercase text-white font-mono">TACTICAL WARNING: LOW TIDE ACTIVE</p>
+                                        <p className="text-[10px] text-mil-alert uppercase leading-relaxed tracking-wider font-mono">
+                                            CURRENT TIDE LEVEL IS <span className="font-bold underline">{current.tide.toFixed(2)}m</span>, WHICH DROPPED BELOW YOUR SET MINIMUM SAFE OPERATIONAL PREFERENCE OF <span className="font-bold underline">{tideThreshold.toFixed(2)}m</span>. SHALLOW REEF RISK HIGH.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'sitrep' && (
                             <div className="animate-fade-in space-y-3">
                                 {/* Primary Row */}
@@ -297,7 +469,7 @@ export function App() {
                                         subLabel={current.tidePhase}
                                         value={current.tide.toFixed(2)}
                                         unit="m"
-                                        colorClass={current.tide < selectedSpot.minTide ? 'text-mil-alert' : 'text-mil-green'}
+                                        colorClass={current.tide < tideThreshold ? 'text-mil-alert animate-pulse' : 'text-mil-green'}
                                     />
 
                                     <DataCard
@@ -318,7 +490,7 @@ export function App() {
                                 
                                 {/* Tide Chart */}
                                 <div className="h-56">
-                                    <TideChart weatherData={dataState.weatherData!} minTide={selectedSpot.minTide} currentTimeIndex={currentTimeIndex}/>
+                                    <TideChart weatherData={dataState.weatherData!} minTide={tideThreshold} currentTimeIndex={currentTimeIndex}/>
                                 </div>
 
                                 {/* AI */}

@@ -1,7 +1,9 @@
 {
-  "name": "SOTA Okinawa Surf Conditions",
-  "description": "A military-grade, AI-powered surf conditions application providing real-time data, intelligent analysis, and performance metrics for surf spots in Okinawa, Japan.",
+  "name": "SOTA Ventura Surf Conditions",
+  "description": "A military-grade, AI-powered surf conditions application providing real-time data, intelligent analysis, and performance metrics for surf spots along the Ventura and Southern California coast.",
   "requestFramePermissions": [],
   "prompt": "",
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
