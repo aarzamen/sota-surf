@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>SOTA Surf Conditions</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SOTA Surf">
+    <link rel="apple-touch-icon" href="/icon-192x192.png">
+    
+    <!-- Placeholder Favicon SVG for immediate visual -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23050505%22/><text y=%2250%22 font-size=%2280%22 x=%2250%22 text-anchor=%22middle%22 dy=%22.35em%22 fill=%22%2333ff33%22>S</text></svg>">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+            },
+            colors: {
+              'mil-black': '#050505', // Deep OLED Black
+              'mil-panel': '#0a0a0a', // Slightly lighter panel bg
+              'mil-green': '#33ff33', // HUD Green
+              'mil-green-dim': 'rgba(51, 255, 51, 0.2)',
+              'mil-tan': '#d2b48c', // Coyote Tan
+              'mil-tan-dark': '#8b7355',
+              'mil-alert': '#ff3333', // Critical Red
+              'mil-warn': '#ffaa00', // Warning Amber
+              'mil-border': '#1f1f1f', // Dark metal border
+            },
+            backgroundImage: {
+              'grid-pattern': 'linear-gradient(#111 1px, transparent 1px), linear-gradient(90deg, #111 1px, transparent 1px)',
+            },
+            backgroundSize: {
+              'grid': '20px 20px'
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.3s ease-out',
+              'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+              'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'blink': 'blink 1s step-end infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(10px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              blink: {
+                '0%, 100%': { opacity: '1' },
+                '50%': { opacity: '0' },
+              }
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+      
+      html, body {
+        height: 100%;
+        background-color: #050505;
+        color: #33ff33;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        font-feature-settings: "zero" 1; /* Slashed zero */
+      }
+
+      /* Scanline Overlay */
+      .scanlines {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 50;
+        opacity: 0.7;
+      }
+      
+      /* Vignette */
+      .vignette {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.6) 100%);
+        pointer-events: none;
+        z-index: 49;
+      }
+
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .safe-top { padding-top: max(env(safe-area-inset-top), 20px); }
+      .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 20px); }
+      
+      /* Custom Range Input for Veo if needed */
+      input[type="range"] {
+        accent-color: #33ff33;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.0.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="antialiased font-mono bg-mil-black text-mil-green selection:bg-mil-green selection:text-black">
+    <div id="root" class="h-full flex flex-col relative z-10"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

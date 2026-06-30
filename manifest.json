@@ -1,0 +1,22 @@
+
+{
+  "name": "SOTA Okinawa Surf Conditions",
+  "short_name": "SOTA Surf",
+  "description": "A military-grade, AI-powered surf conditions application.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
