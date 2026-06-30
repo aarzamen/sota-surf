@@ -15,6 +15,8 @@ export interface SurfSpot {
   bestSwellFromDeg: number;
   offshoreWindFromDeg: number;
   spotMultiplier: number;
+  nwsOffice: string;
+  surfZoneAreas: string[];
 }
 
 export interface HourlyWeatherData {
@@ -30,9 +32,12 @@ export interface HourlyWeatherData {
     swell_wave_period: number[];
     temperature_2m: number[];
     precipitation: number[];
+    tide_phase?: TidePhase[];
+    sourceInfo?: ConditionsSourceInfo;
+    hazardAdvisory?: SurfZoneAdvisory | null;
 }
 
-export type TidePhase = 'rising' | 'falling' | 'peak high' | 'peak low';
+export type TidePhase = 'rising' | 'falling' | 'near high' | 'near low' | 'peak high' | 'peak low';
 
 export interface Conditions {
   waveHeight: number;
@@ -53,6 +58,51 @@ export interface AIAnalysis {
   skillLevel: string;
   timing: string;
   description: string;
+}
+
+export type ThreatLevel = 'GREEN' | 'YELLOW' | 'RED';
+export type RipCurrentRisk = 'Low' | 'Moderate' | 'High';
+
+export interface SurfZoneAdvisory {
+  riskLevel: RipCurrentRisk;
+  threatLevel: ThreatLevel;
+  headline: string;
+  details: string;
+  source: string;
+  issuedAt: string;
+  areas: string[];
+  surfHeight?: string;
+  waterTemperature?: string;
+  thunderstormPotential?: string;
+  remarks?: string;
+}
+
+export interface ConditionsSourceInfo {
+  primarySwell: {
+    summary: string;
+    source: string;
+    observedAt: string;
+    height_m: number;
+    period_s: number;
+    direction_deg: number;
+  };
+  tide: {
+    summary: string;
+    source: string;
+    datum: string;
+  };
+  wind: {
+    summary: string;
+    source: string;
+  };
+  airTemp: {
+    summary: string;
+    source: string;
+  };
+  rain: {
+    summary: string;
+    source: string;
+  };
 }
 
 export interface LocalIntelData {
@@ -115,5 +165,6 @@ export interface SpotConditions {
       quality_score: number;
       notes: string[];
     };
+    hazard_advisory?: SurfZoneAdvisory | null;
   };
 }

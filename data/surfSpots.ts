@@ -17,6 +17,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 285,
     offshoreWindFromDeg: 75,
     spotMultiplier: 1.05,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Ventura County Beaches'],
   },
   rincon: {
     id: 'rincon',
@@ -34,6 +36,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 285,
     offshoreWindFromDeg: 15,
     spotMultiplier: 1.2,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Santa Barbara County Southeastern Coast'],
   },
   silverstrand: {
     id: 'silverstrand',
@@ -51,6 +55,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 260,
     offshoreWindFromDeg: 90,
     spotMultiplier: 1.0,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Ventura County Beaches'],
   },
   emmawood: {
     id: 'emmawood',
@@ -68,6 +74,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 285,
     offshoreWindFromDeg: 70,
     spotMultiplier: 0.95,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Ventura County Beaches'],
   },
   mondos: {
     id: 'mondos',
@@ -85,6 +93,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 285,
     offshoreWindFromDeg: 70,
     spotMultiplier: 0.8,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Ventura County Beaches'],
   },
   countyline: {
     id: 'countyline',
@@ -102,6 +112,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 220,
     offshoreWindFromDeg: 35,
     spotMultiplier: 1.0,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Malibu Coast', 'Los Angeles County Beaches'],
   },
   leocarrillo: {
     id: 'leocarrillo',
@@ -119,6 +131,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 220,
     offshoreWindFromDeg: 35,
     spotMultiplier: 0.95,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Malibu Coast', 'Los Angeles County Beaches'],
   },
   zuma: {
     id: 'zuma',
@@ -136,6 +150,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 220,
     offshoreWindFromDeg: 35,
     spotMultiplier: 1.0,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Malibu Coast', 'Los Angeles County Beaches'],
   },
   surfrider: {
     id: 'surfrider',
@@ -153,6 +169,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 220,
     offshoreWindFromDeg: 350,
     spotMultiplier: 0.9,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Malibu Coast', 'Los Angeles County Beaches'],
   },
   sandspit: {
     id: 'sandspit',
@@ -170,6 +188,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 285,
     offshoreWindFromDeg: 315,
     spotMultiplier: 1.05,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Santa Barbara County Southeastern Coast', 'Santa Barbara County Southwestern Coast'],
   },
   leadbetter: {
     id: 'leadbetter',
@@ -187,6 +207,8 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 285,
     offshoreWindFromDeg: 0,
     spotMultiplier: 0.8,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Santa Barbara County Southeastern Coast', 'Santa Barbara County Southwestern Coast'],
   },
   tarpits: {
     id: 'tarpits',
@@ -204,5 +226,7 @@ export const SURF_SPOTS: { [key: string]: SurfSpot } = {
     bestSwellFromDeg: 285,
     offshoreWindFromDeg: 15,
     spotMultiplier: 0.9,
+    nwsOffice: 'LOX',
+    surfZoneAreas: ['Santa Barbara County Southeastern Coast'],
   },
 };

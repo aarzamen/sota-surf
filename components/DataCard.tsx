@@ -11,9 +11,10 @@ interface DataCardProps {
     style?: React.CSSProperties;
     subLabel?: string;
     subLabelColorClass?: string;
+    sourceLine?: string;
 }
 
-function DataCardComponent({ icon, label, value, unit, colorClass = 'text-mil-green', style, subLabel, subLabelColorClass }: DataCardProps) {
+function DataCardComponent({ icon, label, value, unit, colorClass = 'text-mil-green', style, subLabel, subLabelColorClass, sourceLine }: DataCardProps) {
     const textColor = colorClass.replace('tac-', 'mil-'); // Quick fix for legacy names if any
     const subColor = subLabelColorClass ? subLabelColorClass.replace('tac-', 'mil-') : 'text-mil-tan';
 
@@ -34,6 +35,11 @@ function DataCardComponent({ icon, label, value, unit, colorClass = 'text-mil-gr
                 <span className={`text-3xl font-black tracking-tighter ${textColor}`}>{value}</span>
                 {unit && <span className="text-[10px] ml-1 text-mil-tan/60 font-bold">{unit}</span>}
             </div>
+            {sourceLine && (
+                <div className="mt-2 pt-2 border-t border-mil-border/40 text-[8px] text-mil-tan/60 uppercase tracking-wide leading-snug">
+                    {sourceLine}
+                </div>
+            )}
         </Card>
     );
 }

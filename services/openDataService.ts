@@ -1,5 +1,6 @@
 import { HourlyWeatherData, SpotConditions, SurfSpot, TidePhase, WindRelation } from '../types';
 import { directionToDegrees } from '../utils';
+import { fetchSurfZoneAdvisory } from './surfZoneService';
 
 type TidePoint = {
   time: string;
@@ -59,34 +60,66 @@ export function adaptSpotConditionsToHourlyWeatherData(
   options: AdapterOptions = {},
 ): HourlyWeatherData {
   const hours = options.hours ?? 48;
-  const start = floorToHour(options.generatedAt ?? new Date(spotConditions.generated_at));
+  const start = options.generatedAt ?? new Date(spotConditions.generated_at);
   const time = Array.from({ length: hours }, (_, index) => new Date(start.getTime() + index * MS_PER_HOUR).toISOString());
   const weatherByHour = new Map((options.weatherSeries ?? []).map((point) => [floorIsoHour(point.time), point]));
   const { conditions } = spotConditions;
   const tideSeries = options.tideSeries ?? [];
+  const weatherAt = (iso: string) => weatherByHour.get(floorIsoHour(iso));
+  const firstWeatherTime = weatherAt(time[0])?.time ?? start.toISOString();
 
   return {
     time,
     tide: time.map((iso) => (tideSeries.length > 0 ? interpolateTideHeight(tideSeries, new Date(iso)) : conditions.tide.height_m)),
-    wind_speed_10m: time.map((iso) => weatherByHour.get(iso)?.wind_speed_mps ?? conditions.wind.speed_mps),
-    wind_direction_10m: time.map((iso) => weatherByHour.get(iso)?.wind_direction_deg ?? conditions.wind.direction_deg),
+    tide_phase: time.map((iso) => (tideSeries.length > 0 ? tideState(tideSeries, new Date(iso)) : conditions.tide.state)),
+    wind_speed_10m: time.map((iso) => weatherAt(iso)?.wind_speed_mps ?? conditions.wind.speed_mps),
+    wind_direction_10m: time.map((iso) => weatherAt(iso)?.wind_direction_deg ?? conditions.wind.direction_deg),
     wave_height: time.map(() => conditions.primary_swell.height_m),
     wave_direction: time.map(() => conditions.primary_swell.direction_deg),
     wave_period: time.map(() => conditions.primary_swell.period_s),
     swell_wave_height: time.map(() => conditions.surf_estimate.breaking_size_m),
     swell_wave_direction: time.map(() => conditions.primary_swell.direction_deg),
     swell_wave_period: time.map(() => conditions.primary_swell.period_s),
-    temperature_2m: time.map((iso) => weatherByHour.get(iso)?.air_temp_c ?? conditions.weather.air_temp_c),
-    precipitation: time.map((iso) => weatherByHour.get(iso)?.rain_mm ?? conditions.weather.rain_mm),
+    temperature_2m: time.map((iso) => weatherAt(iso)?.air_temp_c ?? conditions.weather.air_temp_c),
+    precipitation: time.map((iso) => weatherAt(iso)?.rain_mm ?? conditions.weather.rain_mm),
+    sourceInfo: {
+      primarySwell: {
+        summary: `${conditions.primary_swell.source} peak: ${formatMeters(conditions.primary_swell.height_m)} m @ ${formatSeconds(conditions.primary_swell.period_s)}s, ${Math.round(conditions.primary_swell.direction_deg)}°; ${formatSourceTimestamp(conditions.primary_swell.observed_at, 'obs')}`,
+        source: conditions.primary_swell.source,
+        observedAt: conditions.primary_swell.observed_at,
+        height_m: conditions.primary_swell.height_m,
+        period_s: conditions.primary_swell.period_s,
+        direction_deg: conditions.primary_swell.direction_deg,
+      },
+      tide: {
+        summary: `${conditions.tide.station} ${conditions.tide.datum}; ${formatSourceTimestamp(start.toISOString(), 'interp')}`,
+        source: conditions.tide.station,
+        datum: conditions.tide.datum,
+      },
+      wind: {
+        summary: `${conditions.wind.source}; ${formatSourceTimestamp(firstWeatherTime, 'valid')}`,
+        source: conditions.wind.source,
+      },
+      airTemp: {
+        summary: `${conditions.wind.source}; ${formatSourceTimestamp(firstWeatherTime, 'valid')}`,
+        source: conditions.wind.source,
+      },
+      rain: {
+        summary: `${conditions.wind.source}; ${formatSourceTimestamp(firstWeatherTime, 'valid')}`,
+        source: conditions.wind.source,
+      },
+    },
+    hazardAdvisory: conditions.hazard_advisory ?? null,
   };
 }
 
 export const fetchWeatherData = async (spot: SurfSpot): Promise<{ hourly: HourlyWeatherData }> => {
   const generatedAt = new Date();
-  const [wave, tideSeries, weatherSeries] = await Promise.all([
+  const [wave, tideSeries, weatherSeries, hazardAdvisory] = await Promise.all([
     fetchBestCdipWaveObservation(spot),
     fetchNoaaTidePredictions(spot, generatedAt).catch(() => [] as TidePoint[]),
     fetchNwsHourlyForecast(spot).catch(() => [] as WeatherPoint[]),
+    fetchSurfZoneAdvisory(spot).catch(() => null),
   ]);
 
   const tideNow = nearestTidePoint(tideSeries, generatedAt);
@@ -133,6 +166,7 @@ export const fetchWeatherData = async (spot: SurfSpot): Promise<{ hourly: Hourly
         quality_score: qualityScore(breakingSize, windRelationValue, wave.confidence),
         notes: surfNotes(wave, breakingSize, windRelationValue),
       },
+      hazard_advisory: hazardAdvisory,
     },
   };
 
@@ -359,7 +393,22 @@ function tideState(series: TidePoint[], now: Date): TidePhase {
   if (!previous || !next) return 'rising';
 
   const diff = next.height_m - previous.height_m;
-  if (Math.abs(diff) < 0.05) return previous.height_m > 1.8 ? 'peak high' : 'peak low';
+  const currentHeight = interpolateTideHeight(series, now);
+  const windowStart = now.getTime() - 3 * MS_PER_HOUR;
+  const windowEnd = now.getTime() + 3 * MS_PER_HOUR;
+  const windowPoints = series.filter((point) => {
+    const time = new Date(point.time).getTime();
+    return time >= windowStart && time <= windowEnd;
+  });
+  const localMax = Math.max(...windowPoints.map((point) => point.height_m));
+  const localMin = Math.min(...windowPoints.map((point) => point.height_m));
+
+  if (localMax - currentHeight <= 0.08) {
+    return Math.abs(diff) < 0.005 ? 'peak high' : 'near high';
+  }
+  if (currentHeight - localMin <= 0.08) {
+    return Math.abs(diff) < 0.005 ? 'peak low' : 'near low';
+  }
   return diff > 0 ? 'rising' : 'falling';
 }
 
@@ -456,4 +505,25 @@ function round1(value: number): number {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function formatMeters(value: number): string {
+  return value.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function formatSeconds(value: number): string {
+  return value.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function formatSourceTimestamp(iso: string, label: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return label;
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hour = String(date.getUTCHours()).padStart(2, '0');
+  const minute = String(date.getUTCMinutes()).padStart(2, '0');
+
+  return `${label} ${year}-${month}-${day} ${hour}:${minute}Z`;
 }

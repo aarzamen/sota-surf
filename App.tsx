@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { SURF_SPOTS } from './constants';
 import { fetchWeatherData } from './services/meteoService';
 import { generateSurfAnalysis, generateLocalIntel } from './services/geminiService';
+import { applyHazardOverrideToAnalysis } from './services/surfZoneService';
 import { WindArrowIcon, BackIcon, TideIcon, ThermometerIcon, PrecipitationIcon, ShareIcon, SettingsIcon } from './components/icons';
 import { UnitToggle } from './components/UnitToggle';
 import { DataCard } from './components/DataCard';
@@ -148,14 +149,15 @@ export function App() {
                 windSpeed: dataState.weatherData.wind_speed_10m[currentTimeIndex],
                 windDirection: dataState.weatherData.wind_direction_10m[currentTimeIndex],
                 currentTide: dataState.weatherData.tide[currentTimeIndex],
-                tidePhase: getTidePhase(dataState.weatherData.tide, currentTimeIndex)
+                tidePhase: dataState.weatherData.tide_phase?.[currentTimeIndex] ?? getTidePhase(dataState.weatherData.tide, currentTimeIndex)
             };
 
             setDataState(prev => ({ ...prev, aiLoading: true }));
             generateSurfAnalysis(conditions)
                 .then(analysis => {
-                    localStorage.setItem(`surf_ai_analysis_${selectedSpot.id}`, JSON.stringify(analysis));
-                    setDataState(prev => ({ ...prev, aiAnalysis: analysis, aiLoading: false, aiError: null }));
+                    const hazardAdjusted = applyHazardOverrideToAnalysis(analysis, dataState.weatherData?.hazardAdvisory);
+                    localStorage.setItem(`surf_ai_analysis_${selectedSpot.id}`, JSON.stringify(hazardAdjusted));
+                    setDataState(prev => ({ ...prev, aiAnalysis: hazardAdjusted, aiLoading: false, aiError: null }));
                 })
                 .catch(err => {
                     // Fall back to cached analysis offline
@@ -207,7 +209,7 @@ export function App() {
             windDirection: dataState.weatherData.wind_direction_10m[currentTimeIndex],
             windDesc: getWindDescription(dataState.weatherData.wind_direction_10m[currentTimeIndex], selectedSpot.offshoreDirection),
             tide: dataState.weatherData.tide[currentTimeIndex],
-            tidePhase: getTidePhase(dataState.weatherData.tide, currentTimeIndex),
+            tidePhase: dataState.weatherData.tide_phase?.[currentTimeIndex] ?? getTidePhase(dataState.weatherData.tide, currentTimeIndex),
             temp: dataState.weatherData.temperature_2m[currentTimeIndex],
             precip: dataState.weatherData.precipitation[currentTimeIndex],
         };
@@ -451,8 +453,31 @@ export function App() {
                                             unit={unitSystem === 'metric' ? 'M' : 'FT'}
                                             swellPeriod={`${current.swellPeriod.toFixed(0)}s`}
                                             swellDirection={current.swellDirection}
+                                            sourceLine={dataState.weatherData.sourceInfo?.primarySwell.summary}
                                         />
                                     </div>
+
+                                    {dataState.weatherData.hazardAdvisory && dataState.weatherData.hazardAdvisory.threatLevel !== 'GREEN' && (
+                                        <div className={`col-span-2 border p-3 rounded-md shadow-[0_0_15px_rgba(255,51,51,0.18)] ${
+                                            dataState.weatherData.hazardAdvisory.threatLevel === 'RED'
+                                                ? 'border-mil-alert bg-mil-alert/10 text-mil-alert'
+                                                : 'border-mil-warn bg-mil-warn/10 text-mil-warn'
+                                        }`}>
+                                            <div className="flex justify-between gap-3 mb-1">
+                                                <p className="text-[11px] font-black tracking-widest uppercase text-white font-mono">
+                                                    {dataState.weatherData.hazardAdvisory.headline}
+                                                </p>
+                                                <span className="text-[8px] font-bold border border-current px-1 h-fit whitespace-nowrap">
+                                                    {dataState.weatherData.hazardAdvisory.source}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] uppercase leading-relaxed tracking-wider font-mono">
+                                                {dataState.weatherData.hazardAdvisory.details}
+                                                {dataState.weatherData.hazardAdvisory.surfHeight ? ` Surf ${dataState.weatherData.hazardAdvisory.surfHeight}.` : ''}
+                                                {dataState.weatherData.hazardAdvisory.remarks ? ` ${dataState.weatherData.hazardAdvisory.remarks}` : ''}
+                                            </p>
+                                        </div>
+                                    )}
                                     
                                     <DataCard
                                         icon={<WindArrowIcon rotation={current.windDirection} className="w-4 h-4"/>}
@@ -461,6 +486,7 @@ export function App() {
                                         subLabelColorClass={current.windDesc.color}
                                         value={unitSystem === 'metric' ? current.windSpeed.toFixed(1) : convert.msToKnots(current.windSpeed)}
                                         unit={unitSystem === 'metric' ? 'm/s' : 'kn'}
+                                        sourceLine={dataState.weatherData.sourceInfo?.wind.summary}
                                     />
                                     
                                     <DataCard
@@ -470,13 +496,15 @@ export function App() {
                                         value={current.tide.toFixed(2)}
                                         unit="m"
                                         colorClass={current.tide < tideThreshold ? 'text-mil-alert animate-pulse' : 'text-mil-green'}
+                                        sourceLine={dataState.weatherData.sourceInfo?.tide.summary}
                                     />
 
                                     <DataCard
                                         icon={<ThermometerIcon className="w-4 h-4"/>}
-                                        label="Temp"
+                                        label="Air Temp"
                                         value={tempUnit === 'metric' ? current.temp.toFixed(0) : convert.celsiusToFahrenheit(current.temp)}
                                         unit={tempUnit === 'metric' ? '°C' : '°F'}
+                                        sourceLine={dataState.weatherData.sourceInfo?.airTemp.summary}
                                     />
 
                                     <DataCard
@@ -485,6 +513,7 @@ export function App() {
                                         value={unitSystem === 'metric' ? current.precip.toFixed(1) : convert.mmToInches(current.precip)}
                                         unit={unitSystem === 'metric' ? 'mm' : 'in'}
                                         colorClass={current.precip > 0 ? 'text-mil-warn' : 'text-mil-green'}
+                                        sourceLine={dataState.weatherData.sourceInfo?.rain.summary}
                                     />
                                 </div>
                                 
