@@ -15,7 +15,7 @@ import { VeoGenerator } from './components/VeoGenerator';
 import { SwellCard } from './components/SwellCard';
 import { SpotSelector } from './components/SpotSelector';
 import { HourlyWeatherData, AIAnalysis, Conditions, SurfSpot, LocalIntelData } from './types';
-import { convert, getWindDescription, getTidePhase, haversineDistance, triggerHaptic } from './utils';
+import { convert, findClosestWeatherDataIndex, getWindDescription, getTidePhase, haversineDistance, triggerHaptic } from './utils';
 
 type UnitSystem = 'metric' | 'imperial';
 type Tab = 'sitrep' | 'recon' | 'sim';
@@ -134,18 +134,21 @@ export function App() {
         }
     }, [selectedSpot, fetchData]);
 
+    const currentTimeIndex = useMemo(() => (
+        dataState.weatherData ? findClosestWeatherDataIndex(dataState.weatherData.time) : 0
+    ), [dataState.weatherData]);
+
     // AI Logic
     useEffect(() => {
         if(dataState.weatherData && selectedSpot) {
-            const hour = new Date().getHours();
             const conditions: Conditions = {
-                waveHeight: dataState.weatherData.wave_height[hour],
-                wavePeriod: dataState.weatherData.wave_period[hour],
-                waveDirection: dataState.weatherData.wave_direction[hour],
-                windSpeed: dataState.weatherData.wind_speed_10m[hour],
-                windDirection: dataState.weatherData.wind_direction_10m[hour],
-                currentTide: dataState.weatherData.tide[hour],
-                tidePhase: getTidePhase(dataState.weatherData.tide, hour)
+                waveHeight: dataState.weatherData.wave_height[currentTimeIndex],
+                wavePeriod: dataState.weatherData.wave_period[currentTimeIndex],
+                waveDirection: dataState.weatherData.wave_direction[currentTimeIndex],
+                windSpeed: dataState.weatherData.wind_speed_10m[currentTimeIndex],
+                windDirection: dataState.weatherData.wind_direction_10m[currentTimeIndex],
+                currentTide: dataState.weatherData.tide[currentTimeIndex],
+                tidePhase: getTidePhase(dataState.weatherData.tide, currentTimeIndex)
             };
 
             setDataState(prev => ({ ...prev, aiLoading: true }));
@@ -190,28 +193,25 @@ export function App() {
                     setDataState(prev => ({ ...prev, intelLoading: false }));
                 });
         }
-    }, [dataState.weatherData, selectedSpot]);
+    }, [dataState.weatherData, selectedSpot, currentTimeIndex]);
 
     const current = useMemo(() => {
         if (!dataState.weatherData || !selectedSpot) return null;
-        const hour = new Date().getHours();
         return {
             ...dataState.weatherData,
-            waveHeight: dataState.weatherData.wave_height[hour],
-            swellHeight: dataState.weatherData.swell_wave_height[hour],
-            swellPeriod: dataState.weatherData.swell_wave_period[hour],
-            swellDirection: dataState.weatherData.swell_wave_direction[hour],
-            windSpeed: dataState.weatherData.wind_speed_10m[hour],
-            windDirection: dataState.weatherData.wind_direction_10m[hour],
-            windDesc: getWindDescription(dataState.weatherData.wind_direction_10m[hour], selectedSpot.offshoreDirection),
-            tide: dataState.weatherData.tide[hour],
-            tidePhase: getTidePhase(dataState.weatherData.tide, hour),
-            temp: dataState.weatherData.temperature_2m[hour],
-            precip: dataState.weatherData.precipitation[hour],
+            waveHeight: dataState.weatherData.wave_height[currentTimeIndex],
+            swellHeight: dataState.weatherData.swell_wave_height[currentTimeIndex],
+            swellPeriod: dataState.weatherData.swell_wave_period[currentTimeIndex],
+            swellDirection: dataState.weatherData.swell_wave_direction[currentTimeIndex],
+            windSpeed: dataState.weatherData.wind_speed_10m[currentTimeIndex],
+            windDirection: dataState.weatherData.wind_direction_10m[currentTimeIndex],
+            windDesc: getWindDescription(dataState.weatherData.wind_direction_10m[currentTimeIndex], selectedSpot.offshoreDirection),
+            tide: dataState.weatherData.tide[currentTimeIndex],
+            tidePhase: getTidePhase(dataState.weatherData.tide, currentTimeIndex),
+            temp: dataState.weatherData.temperature_2m[currentTimeIndex],
+            precip: dataState.weatherData.precipitation[currentTimeIndex],
         };
-    }, [dataState.weatherData, selectedSpot]);
-    
-    const currentTimeIndex = new Date().getHours();
+    }, [dataState.weatherData, selectedSpot, currentTimeIndex]);
     
     const handleShare = () => {
         triggerHaptic([50]);

@@ -61,13 +61,13 @@ export function adaptSpotConditionsToHourlyWeatherData(
   const hours = options.hours ?? 48;
   const start = floorToHour(options.generatedAt ?? new Date(spotConditions.generated_at));
   const time = Array.from({ length: hours }, (_, index) => new Date(start.getTime() + index * MS_PER_HOUR).toISOString());
-  const tideByHour = new Map((options.tideSeries ?? []).map((point) => [floorIsoHour(point.time), point.height_m]));
   const weatherByHour = new Map((options.weatherSeries ?? []).map((point) => [floorIsoHour(point.time), point]));
   const { conditions } = spotConditions;
+  const tideSeries = options.tideSeries ?? [];
 
   return {
     time,
-    tide: time.map((iso) => tideByHour.get(iso) ?? conditions.tide.height_m),
+    tide: time.map((iso) => (tideSeries.length > 0 ? interpolateTideHeight(tideSeries, new Date(iso)) : conditions.tide.height_m)),
     wind_speed_10m: time.map((iso) => weatherByHour.get(iso)?.wind_speed_mps ?? conditions.wind.speed_mps),
     wind_direction_10m: time.map((iso) => weatherByHour.get(iso)?.wind_direction_deg ?? conditions.wind.direction_deg),
     wave_height: time.map(() => conditions.primary_swell.height_m),
@@ -213,7 +213,7 @@ async function fetchNoaaTidePredictions(spot: SurfSpot, start: Date): Promise<Ti
     datum: 'MLLW',
     units: 'metric',
     time_zone: 'gmt',
-    interval: 'h',
+    interval: '6',
     format: 'json',
     application: 'SOTA-Surf',
   });
@@ -303,6 +303,31 @@ export function windRelation(windFromDeg: number, offshoreFromDeg: number): Wind
   return 'onshore';
 }
 
+export function interpolateTideHeight(series: Array<{ time: string; height_m: number }>, now: Date): number {
+  if (series.length === 0) return 0;
+  if (series.length === 1) return series[0].height_m;
+
+  const sorted = [...series].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  const nowMs = now.getTime();
+
+  if (nowMs <= new Date(sorted[0].time).getTime()) return sorted[0].height_m;
+  if (nowMs >= new Date(sorted[sorted.length - 1].time).getTime()) return sorted[sorted.length - 1].height_m;
+
+  for (let index = 0; index < sorted.length - 1; index++) {
+    const previous = sorted[index];
+    const next = sorted[index + 1];
+    const previousMs = new Date(previous.time).getTime();
+    const nextMs = new Date(next.time).getTime();
+
+    if (nowMs >= previousMs && nowMs <= nextMs) {
+      const progress = (nowMs - previousMs) / (nextMs - previousMs);
+      return previous.height_m + (next.height_m - previous.height_m) * progress;
+    }
+  }
+
+  return nearestByTime(sorted, now).height_m;
+}
+
 function surfNotes(wave: CdipWaveObservation, breakingSizeM: number, relation: WindRelation): string[] {
   const notes: string[] = [];
 
@@ -340,7 +365,7 @@ function tideState(series: TidePoint[], now: Date): TidePhase {
 
 function nearestTidePoint(series: TidePoint[], now: Date): TidePoint {
   if (series.length === 0) return { time: now.toISOString(), height_m: 0 };
-  return nearestByTime(series, now);
+  return { time: now.toISOString(), height_m: interpolateTideHeight(series, now) };
 }
 
 function nearestWeatherPoint(series: WeatherPoint[], now: Date): WeatherPoint {

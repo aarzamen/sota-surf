@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { SURF_SPOTS } from '../data/surfSpots.ts';
-import { adaptSpotConditionsToHourlyWeatherData } from '../services/openDataService.ts';
+import { adaptSpotConditionsToHourlyWeatherData, interpolateTideHeight } from '../services/openDataService.ts';
 import { SpotConditions } from '../types.ts';
 
 describe('open-data surf feed', () => {
@@ -69,5 +69,17 @@ describe('open-data surf feed', () => {
     assert.equal(hourly.precipitation[0], 0);
     assert.equal(hourly.time[0], '2026-06-30T02:00:00.000Z');
     assert.equal(hourly.time[47], '2026-07-02T01:00:00.000Z');
+  });
+
+  it('interpolates current tide between NOAA prediction points', () => {
+    const tideHeight = interpolateTideHeight(
+      [
+        { time: '2026-06-30T03:00:00.000Z', height_m: 1.685 },
+        { time: '2026-06-30T03:06:00.000Z', height_m: 1.704 },
+      ],
+      new Date('2026-06-30T03:03:00.000Z'),
+    );
+
+    assert.ok(Math.abs(tideHeight - 1.6945) < 0.0001);
   });
 });

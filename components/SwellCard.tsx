@@ -16,7 +16,7 @@ function SwellCardComponent({ swellHeight, unit, swellPeriod, swellDirection }: 
             <div className="flex items-center justify-between border-b border-mil-green/30 pb-2 mb-3">
                 <div className="flex items-center text-mil-green">
                     <WaveIcon className="w-4 h-4" />
-                    <span className="ml-2 text-[10px] font-bold uppercase tracking-[0.2em]">Primary Swell Vector</span>
+                    <span className="ml-2 text-[10px] font-bold uppercase tracking-[0.2em]">Breaking Estimate / Buoy Peak</span>
                 </div>
                 <div className="w-2 h-2 bg-mil-green rounded-full animate-pulse"></div>
             </div>

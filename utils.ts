@@ -89,6 +89,27 @@ export function directionToDegrees(direction: string): number {
     return compassDirections[direction.toUpperCase()] ?? 0;
 }
 
+export function findClosestWeatherDataIndex(times: string[], now: Date = new Date()): number {
+    if (times.length === 0) return 0;
+
+    const nowMs = now.getTime();
+    let closestIndex = 0;
+    let closestDiff = Number.POSITIVE_INFINITY;
+
+    times.forEach((time, index) => {
+        const timeMs = new Date(time).getTime();
+        if (!Number.isFinite(timeMs)) return;
+
+        const diff = Math.abs(timeMs - nowMs);
+        if (diff < closestDiff) {
+            closestDiff = diff;
+            closestIndex = index;
+        }
+    });
+
+    return closestIndex;
+}
+
 export function getTidePhase(tide: number[], index: number): TidePhase {
     if (index < 0 || index >= tide.length - 1) {
         if (index > 0 && tide[index] < tide[index-1]) return 'falling';
