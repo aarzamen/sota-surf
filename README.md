@@ -41,14 +41,14 @@ Prerequisites:
 Install dependencies:
 
 ```bash
-cd /Users/ama/sota-surf
+cd /Users/ama/Projects/sota-surf
 npm install
 ```
 
 Start the development server:
 
 ```bash
-cd /Users/ama/sota-surf
+cd /Users/ama/Projects/sota-surf
 npm run dev -- --host 127.0.0.1 --port 3000
 ```
 
@@ -61,7 +61,7 @@ http://127.0.0.1:3000/
 Optional Gemini features:
 
 ```bash
-cd /Users/ama/sota-surf
+cd /Users/ama/Projects/sota-surf
 printf 'GEMINI_API_KEY=your_key_here\n' > .env.local
 ```
 
@@ -70,14 +70,14 @@ printf 'GEMINI_API_KEY=your_key_here\n' > .env.local
 Run the test suite:
 
 ```bash
-cd /Users/ama/sota-surf
+cd /Users/ama/Projects/sota-surf
 npm test
 ```
 
 Build the production bundle:
 
 ```bash
-cd /Users/ama/sota-surf
+cd /Users/ama/Projects/sota-surf
 npm run build
 ```
 
