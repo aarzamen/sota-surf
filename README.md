@@ -99,3 +99,13 @@ The focused tests cover:
 ## Safety Note
 
 This is a situational-awareness tool, not an authority for water entry. Always visually confirm local conditions, heed posted lifeguard and NWS warnings, and treat high rip-current-risk advisories as operationally serious even when local surf estimates look manageable.
+
+## Licence
+
+SOTA Surf is released under the MIT License. See [LICENSE](LICENSE) for the full text; it covers the code in this repository, not the data the app fetches.
+
+Third-party terms that apply alongside it:
+
+- npm dependencies are used under their own permissive licences (MIT, ISC, BSD-3-Clause, Apache-2.0, plus the CC-BY-4.0 `caniuse-lite` browser-support data used only at build time). Each package's licence is recorded in `package-lock.json`.
+- The JetBrains Mono typeface is loaded at runtime from Google Fonts under the SIL Open Font License 1.1 and is not bundled here.
+- Live data from NOAA CO-OPS, the National Weather Service, and the CDIP ERDDAP service remains subject to those providers' terms of use, and the optional Gemini features are subject to Google's API terms.
